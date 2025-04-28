@@ -68,6 +68,7 @@ class Wheel(qtw.QGraphicsItem):
         self.massBlock.setParentItem(self)
         scene.addItem(self.massBlock)
 
+# Spring Class
 class Spring(qtw.QGraphicsItem):
     def __init__(self, x1, y1, x2, y2, parent=None, pen=None):
         super().__init__(parent)
@@ -78,16 +79,19 @@ class Spring(qtw.QGraphicsItem):
         self.pen = pen
 
     def boundingRect(self):
-        return qtc.QRectF(min(self.x1, self.x2), min(self.y1, self.y2), abs(self.x2-self.x1), abs(self.y2-self.y1))
+        return qtc.QRectF(min(self.x1, self.x2), min(self.y1, self.y2), abs(self.x2 - self.x1), abs(self.y2 - self.y1))
 
     def paint(self, painter, option, widget=None):
         if self.pen:
             painter.setPen(self.pen)
-        points = [qtc.QPointF(self.x1, self.y1)]
+        # Draw a zig-zag spring
         num_coils = 6
+        points = []
         dx = (self.x2 - self.x1) / (num_coils * 2)
-        dy = (self.y2 - self.y1) / num_coils
-        x, y = self.x1, self.y1
+        dy = (self.y2 - self.y1) / (num_coils)
+        x = self.x1
+        y = self.y1
+        points.append(qtc.QPointF(x, y))
         for _ in range(num_coils):
             x += dx
             y += dy
@@ -98,6 +102,7 @@ class Spring(qtw.QGraphicsItem):
         points.append(qtc.QPointF(self.x2, self.y2))
         painter.drawPolyline(*points)
 
+# Dashpot Class
 class Dashpot(qtw.QGraphicsItem):
     def __init__(self, x1, y1, x2, y2, parent=None, pen=None):
         super().__init__(parent)
@@ -108,7 +113,7 @@ class Dashpot(qtw.QGraphicsItem):
         self.pen = pen
 
     def boundingRect(self):
-        return qtc.QRectF(min(self.x1, self.x2), min(self.y1, self.y2), abs(self.x2-self.x1), abs(self.y2-self.y1))
+        return qtc.QRectF(min(self.x1, self.x2), min(self.y1, self.y2), abs(self.x2 - self.x1), abs(self.y2 - self.y1))
 
     def paint(self, painter, option, widget=None):
         if self.pen:
@@ -117,9 +122,13 @@ class Dashpot(qtw.QGraphicsItem):
         midy = (self.y1 + self.y2) / 2
         rect_width = 10
         rect_height = 20
+        # Top line
         painter.drawLine(self.x1, self.y1, midx, midy - rect_height/2)
-        painter.drawRect(midx-rect_width/2, midy-rect_height/2, rect_width, rect_height)
+        # Rectangle (damper body)
+        painter.drawRect(midx - rect_width/2, midy - rect_height/2, rect_width, rect_height)
+        # Bottom line
         painter.drawLine(midx, midy + rect_height/2, self.x2, self.y2)
+
 #region MVC for quarter car model
 class CarModel():
     """
@@ -200,20 +209,27 @@ class CarView():
         self.doPlot(model)
 
     def buildScene(self):
-        #create a scene object
         self.scene = qtw.QGraphicsScene()
         self.scene.setObjectName("MyScene")
-        self.scene.setSceneRect(-200, -200, 400, 400)  # xLeft, yTop, Width, Height
+        self.scene.setSceneRect(-200, -200, 400, 400)
 
-        #set the scene for the graphics view object
         self.gv_Schematic.setScene(self.scene)
-        #make some pens and brushes for my drawing
         self.setupPensAndBrushes()
-        self.Wheel = Wheel(0,50,50, pen=self.penWheel, wheelBrush=self.brushWheel, massBrush=self.brushMass, name = "Wheel")
+
+        # Create the CarBody and Wheel
+        self.Wheel = Wheel(0, 50, 50, pen=self.penWheel, wheelBrush=self.brushWheel, massBrush=self.brushMass,
+                           name="Wheel")
         self.CarBody = MassBlock(0, -70, 100, 30, pen=self.penWheel, brush=self.brushMass, name="Car Body", mass=150)
+
+        # New: Spring and Dashpot between CarBody and Wheel
+        self.Spring1 = Spring(0, -40, 0, 20, pen=self.penWheel)  # Slightly left side
+        self.Dashpot1 = Dashpot(30, -40, 30, 20, pen=self.penWheel)  # Slightly right side
+
+        # Add to scene
         self.Wheel.addToScene(self.scene)
         self.scene.addItem(self.CarBody)
-        ##$JES MISSING CODE# #Finish building the scene to look similar to the schematic on the problem assignment
+        self.scene.addItem(self.Spring1)
+        self.scene.addItem(self.Dashpot1)
 
     def setupPensAndBrushes(self):
         self.penWheel = qtg.QPen(qtg.QColor("orange"))
